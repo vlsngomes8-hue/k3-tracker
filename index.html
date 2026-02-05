@@ -1,1 +1,148 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+  <title>K3 Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial; background:#f2f2f2; padding:10px; }
+    h3 { text-align:center; }
+    input, button {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+      font-size: 16px;
+    }
+    table {
+      width:100%;
+      border-collapse: collapse;
+      margin-top:10px;
+      background:#fff;
+    }
+    th, td {
+      border:1px solid #ccc;
+      padding:6px;
+      text-align:center;
+      font-size:14px;
+    }
+    th { background:#333; color:#fff; }
+    .box { background:#fff; padding:10px; margin-top:10px; }
+    .danger { color:red; font-weight:bold; }
+  </style>
+</head>
+<body>
+
+<h3>K3 Manual Tracker</h3>
+
+<input id="period" placeholder="Period ID">
+<input id="d1" type="number" min="1" max="6" placeholder="Dice 1">
+<input id="d2" type="number" min="1" max="6" placeholder="Dice 2">
+<input id="d3" type="number" min="1" max="6" placeholder="Dice 3">
+
+<button onclick="add()">Add Entry</button>
+<button onclick="clearAll()">Clear All Data</button>
+
+<div class="box">
+  <b>History</b>
+  <table>
+    <thead>
+      <tr>
+        <th>Period</th>
+        <th>Dice</th>
+        <th>Sum</th>
+        <th>Big/Small</th>
+        <th>Odd/Even</th>
+      </tr>
+    </thead>
+    <tbody id="history"></tbody>
+  </table>
+</div>
+
+<div class="box">
+  <b>Sum Count (3–18)</b>
+  <div id="sumCount"></div>
+</div>
+
+<div class="box">
+  <b>Missing Sums</b>
+  <div id="missing" class="danger"></div>
+</div>
+
+<script>
+let history = JSON.parse(localStorage.getItem("k3_history")) || [];
+let sumCounter = JSON.parse(localStorage.getItem("k3_sumCounter")) || {};
+
+for (let i = 3; i <= 18; i++) {
+  if (!sumCounter[i]) sumCounter[i] = 0;
+}
+
+function save() {
+  localStorage.setItem("k3_history", JSON.stringify(history));
+  localStorage.setItem("k3_sumCounter", JSON.stringify(sumCounter));
+}
+
+function add() {
+  let p = period.value.trim();
+  let a = +d1.value, b = +d2.value, c = +d3.value;
+
+  if (!p || a<1 || b<1 || c<1 || a>6 || b>6 || c>6) {
+    alert("Enter valid period and dice (1–6)");
+    return;
+  }
+
+  let sum = a + b + c;
+  let size = sum <= 10 ? "Small" : "Big";
+  let oe = sum % 2 === 0 ? "Even" : "Odd";
+
+  history.unshift({p, dice:`${a}-${b}-${c}`, sum, size, oe});
+  sumCounter[sum]++;
+
+  save();
+  render();
+
+  period.value = d1.value = d2.value = d3.value = "";
+}
+
+function render() {
+  const historyEl = document.getElementById("history");
+  historyEl.innerHTML = "";
+
+  history.forEach(h => {
+    historyEl.innerHTML += `
+      <tr>
+        <td>${h.p}</td>
+        <td>${h.dice}</td>
+        <td>${h.sum}</td>
+        <td>${h.size}</td>
+        <td>${h.oe}</td>
+      </tr>`;
+  });
+
+  let sc = "";
+  for (let i = 3; i <= 18; i++) {
+    sc += `Sum ${i}: ${sumCounter[i]} times<br>`;
+  }
+  document.getElementById("sumCount").innerHTML = sc;
+
+  let miss = [];
+  for (let i = 3; i <= 18; i++) {
+    if (sumCounter[i] === 0) miss.push(i);
+  }
+  document.getElementById("missing").innerHTML =
+    miss.length ? miss.join(", ") : "No missing sums 🎯";
+}
+
+function clearAll() {
+  if (confirm("Clear all saved data?")) {
+    history = [];
+    for (let i = 3; i <= 18; i++) sumCounter[i] = 0;
+    save();
+    render();
+  }
+}
+
+render();
+</script>
+
+</body>
+</html>
