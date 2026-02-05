@@ -1,84 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>K3 Sum Tap Tracker</title>
+  <title>K3 Missing Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f2f2f2;
-      padding: 10px;
-    }
-
-    h3 {
-      text-align: center;
-      margin-bottom: 10px;
-    }
-
-    input, button {
-      width: 100%;
-      padding: 10px;
-      font-size: 16px;
-      margin: 5px 0;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 6px;
-      margin-top: 10px;
-    }
-
-    .sumBtn {
-      padding: 14px;
-      font-size: 18px;
-      font-weight: bold;
-      background: #222;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-    }
-
-    .sumBtn:active {
-      background: #555;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-      background: #fff;
-    }
-
-    th, td {
-      border: 1px solid #ccc;
-      padding: 6px;
-      text-align: center;
-      font-size: 14px;
-    }
-
-    th {
-      background: #333;
-      color: #fff;
-    }
-
-    .box {
-      background: #fff;
-      padding: 10px;
-      margin-top: 10px;
-    }
-
-    .danger {
-      color: red;
-      font-weight: bold;
-    }
+    body { font-family: Arial; background:#f2f2f2; padding:10px; }
+    h3 { text-align:center; }
+    input, button { width:100%; padding:10px; font-size:16px; margin:5px 0; }
+    .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+    .sumBtn { padding:14px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:none; border-radius:6px; }
+    table { width:100%; border-collapse:collapse; background:#fff; margin-top:10px; }
+    th, td { border:1px solid #ccc; padding:6px; text-align:center; }
+    th { background:#333; color:#fff; }
+    .box { background:#fff; padding:10px; margin-top:10px; }
+    .hint { background:#e8f0ff; padding:10px; border-radius:6px; }
+    .hot { color:green; font-weight:bold; }
+    .cold { color:red; font-weight:bold; }
   </style>
 </head>
 
 <body>
 
-<h3>K3 Sum Tap Tracker</h3>
+<h3>K3 Missing Count Tracker</h3>
 
 <input id="startPeriod" placeholder="Enter Starting Period (once)">
 
@@ -86,6 +29,11 @@
 
 <button onclick="undoLast()">Undo Last</button>
 <button onclick="clearAll()">Clear All Data</button>
+
+<div class="box">
+  <b>Prediction Hint (Missing-based)</b>
+  <div class="hint" id="hintBox">Add some data</div>
+</div>
 
 <div class="box">
   <b>History</b>
@@ -103,142 +51,131 @@
 </div>
 
 <div class="box">
-  <b>Sum Count (3–18)</b>
-  <div id="sumCount"></div>
-</div>
-
-<div class="box">
-  <b>Missing Sums</b>
-  <div id="missing" class="danger"></div>
+  <b>Missing Count (3–18)</b>
+  <table>
+    <thead>
+      <tr>
+        <th>Sum</th>
+        <th>Missing</th>
+      </tr>
+    </thead>
+    <tbody id="missingTable"></tbody>
+  </table>
 </div>
 
 <script>
-/* ========= LOAD DATA ========= */
 let history = JSON.parse(localStorage.getItem("k3_history")) || [];
-let sumCounter = JSON.parse(localStorage.getItem("k3_sumCounter")) || {};
-let currentPeriod = localStorage.getItem("k3_currentPeriod"); // STRING
+let missing = JSON.parse(localStorage.getItem("k3_missing")) || {};
+let currentPeriod = localStorage.getItem("k3_currentPeriod");
 
+for (let i = 3; i <= 18; i++) if (missing[i] === undefined) missing[i] = 0;
+if (currentPeriod) document.getElementById("startPeriod").value = currentPeriod;
+
+/* buttons */
+const wrap = document.getElementById("sumButtons");
 for (let i = 3; i <= 18; i++) {
-  if (!sumCounter[i]) sumCounter[i] = 0;
+  let b = document.createElement("button");
+  b.className = "sumBtn";
+  b.innerText = i;
+  b.onclick = () => addSum(i);
+  wrap.appendChild(b);
 }
 
-if (currentPeriod) {
-  document.getElementById("startPeriod").value = currentPeriod;
-}
-
-/* ========= CREATE SUM BUTTONS ========= */
-const btnWrap = document.getElementById("sumButtons");
-for (let i = 3; i <= 18; i++) {
-  const btn = document.createElement("button");
-  btn.className = "sumBtn";
-  btn.innerText = i;
-  btn.onclick = () => addSum(i);
-  btnWrap.appendChild(btn);
-}
-
-/* ========= SAFE PERIOD INCREMENT ========= */
-/* increases ONLY last 2 digits safely */
+/* safe period increment */
 function nextPeriod(p) {
-  let base = p.slice(0, -2);
+  let base = p.slice(0,-2);
   let last = p.slice(-2);
-  let next = (parseInt(last, 10) + 1).toString().padStart(2, "0");
-  return base + next;
+  let n = (parseInt(last,10)+1).toString().padStart(2,"0");
+  return base + n;
 }
 
-/* ========= SAVE ========= */
 function save() {
   localStorage.setItem("k3_history", JSON.stringify(history));
-  localStorage.setItem("k3_sumCounter", JSON.stringify(sumCounter));
+  localStorage.setItem("k3_missing", JSON.stringify(missing));
   localStorage.setItem("k3_currentPeriod", currentPeriod);
 }
 
-/* ========= ADD SUM ========= */
 function addSum(sum) {
   if (!currentPeriod) {
-    const sp = document.getElementById("startPeriod").value.trim();
-    if (!sp) {
-      alert("Enter starting period first");
-      return;
-    }
+    let sp = document.getElementById("startPeriod").value.trim();
+    if (!sp) return alert("Enter starting period first");
     currentPeriod = sp;
   }
 
-  const size = sum <= 10 ? "Small" : "Big";
-  const oe = sum % 2 === 0 ? "Even" : "Odd";
+  // increase missing for all
+  for (let i = 3; i <= 18; i++) missing[i]++;
+
+  // reset hit sum
+  missing[sum] = 0;
 
   history.unshift({
     period: currentPeriod,
     sum,
-    size,
-    oe
+    size: sum <= 10 ? "Small" : "Big",
+    oe: sum % 2 === 0 ? "Even" : "Odd"
   });
 
-  sumCounter[sum]++;
   currentPeriod = nextPeriod(currentPeriod);
-
   document.getElementById("startPeriod").value = currentPeriod;
 
   save();
   render();
 }
 
-/* ========= UNDO ========= */
 function undoLast() {
-  if (!history.length) {
-    alert("Nothing to undo");
-    return;
-  }
+  if (!history.length) return alert("Nothing to undo");
 
-  const last = history.shift();
-  sumCounter[last.sum]--;
+  let last = history.shift();
   currentPeriod = last.period;
 
-  document.getElementById("startPeriod").value = currentPeriod;
+  // rebuild missing counts
+  missing = {};
+  for (let i = 3; i <= 18; i++) missing[i] = 0;
 
+  for (let i = history.length - 1; i >= 0; i--) {
+    for (let s = 3; s <= 18; s++) missing[s]++;
+    missing[history[i].sum] = 0;
+  }
+
+  document.getElementById("startPeriod").value = currentPeriod;
   save();
   render();
 }
 
-/* ========= RENDER ========= */
-function render() {
-  const historyEl = document.getElementById("history");
-  historyEl.innerHTML = "";
+/* prediction based on highest missing */
+function predictionHint() {
+  if (history.length < 5) return "Not enough data yet";
 
-  history.forEach(h => {
-    historyEl.innerHTML += `
-      <tr>
-        <td>${h.period}</td>
-        <td>${h.sum}</td>
-        <td>${h.size}</td>
-        <td>${h.oe}</td>
-      </tr>`;
-  });
-
-  let sc = "";
-  for (let i = 3; i <= 18; i++) {
-    sc += `Sum ${i}: ${sumCounter[i]} times<br>`;
-  }
-  document.getElementById("sumCount").innerHTML = sc;
-
-  let miss = [];
-  for (let i = 3; i <= 18; i++) {
-    if (sumCounter[i] === 0) miss.push(i);
-  }
-
-  document.getElementById("missing").innerHTML =
-    miss.length ? miss.join(", ") : "No missing sums 🎯";
+  let sorted = Object.keys(missing).sort((a,b)=>missing[b]-missing[a]);
+  let top = sorted.slice(0,3).join(", ");
+  return `🎯 Most overdue sums: <b>${top}</b>`;
 }
 
-/* ========= CLEAR ========= */
+function render() {
+  const h = document.getElementById("history");
+  h.innerHTML = "";
+  history.forEach(x=>{
+    h.innerHTML+=`<tr><td>${x.period}</td><td>${x.sum}</td><td>${x.size}</td><td>${x.oe}</td></tr>`;
+  });
+
+  const m = document.getElementById("missingTable");
+  m.innerHTML = "";
+  for (let i=3;i<=18;i++) {
+    let cls = missing[i] >= 10 ? "cold" : "";
+    m.innerHTML += `<tr><td>${i}</td><td class="${cls}">${missing[i]}</td></tr>`;
+  }
+
+  document.getElementById("hintBox").innerHTML = predictionHint();
+}
+
 function clearAll() {
   if (!confirm("Clear all data?")) return;
-
   localStorage.clear();
-  history = [];
-  sumCounter = {};
-  for (let i = 3; i <= 18; i++) sumCounter[i] = 0;
-  currentPeriod = null;
-  document.getElementById("startPeriod").value = "";
+  history=[];
+  missing={};
+  for (let i=3;i<=18;i++) missing[i]=0;
+  currentPeriod=null;
+  document.getElementById("startPeriod").value="";
   render();
 }
 
