@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -32,14 +31,12 @@
 </head>
 <body>
 
-<h3>K3 Manual Tracker</h3>
+<h3>K3 Sum Tracker</h3>
 
-<input id="period" placeholder="Period ID">
-<input id="d1" type="number" min="1" max="6" placeholder="Dice 1">
-<input id="d2" type="number" min="1" max="6" placeholder="Dice 2">
-<input id="d3" type="number" min="1" max="6" placeholder="Dice 3">
+<input id="startPeriod" placeholder="Starting Period (enter once)">
+<input id="sumInput" type="number" min="3" max="18" placeholder="Enter Sum (3–18)">
 
-<button onclick="add()">Add Entry</button>
+<button onclick="add()">Add</button>
 <button onclick="clearAll()">Clear All Data</button>
 
 <div class="box">
@@ -48,7 +45,6 @@
     <thead>
       <tr>
         <th>Period</th>
-        <th>Dice</th>
         <th>Sum</th>
         <th>Big/Small</th>
         <th>Odd/Even</th>
@@ -71,36 +67,51 @@
 <script>
 let history = JSON.parse(localStorage.getItem("k3_history")) || [];
 let sumCounter = JSON.parse(localStorage.getItem("k3_sumCounter")) || {};
+let currentPeriod = localStorage.getItem("k3_currentPeriod");
 
 for (let i = 3; i <= 18; i++) {
   if (!sumCounter[i]) sumCounter[i] = 0;
 }
 
+if (currentPeriod) {
+  document.getElementById("startPeriod").value = currentPeriod;
+}
+
 function save() {
   localStorage.setItem("k3_history", JSON.stringify(history));
   localStorage.setItem("k3_sumCounter", JSON.stringify(sumCounter));
+  localStorage.setItem("k3_currentPeriod", currentPeriod);
 }
 
 function add() {
-  let p = period.value.trim();
-  let a = +d1.value, b = +d2.value, c = +d3.value;
+  let sp = document.getElementById("startPeriod").value.trim();
+  let sum = +document.getElementById("sumInput").value;
 
-  if (!p || a<1 || b<1 || c<1 || a>6 || b>6 || c>6) {
-    alert("Enter valid period and dice (1–6)");
+  if (!sp || sum < 3 || sum > 18) {
+    alert("Enter starting period and valid sum (3–18)");
     return;
   }
 
-  let sum = a + b + c;
+  if (!currentPeriod) currentPeriod = sp;
+
   let size = sum <= 10 ? "Small" : "Big";
   let oe = sum % 2 === 0 ? "Even" : "Odd";
 
-  history.unshift({p, dice:`${a}-${b}-${c}`, sum, size, oe});
+  history.unshift({
+    period: currentPeriod,
+    sum,
+    size,
+    oe
+  });
+
   sumCounter[sum]++;
+  currentPeriod = (parseInt(currentPeriod) + 1).toString();
 
   save();
   render();
 
-  period.value = d1.value = d2.value = d3.value = "";
+  document.getElementById("startPeriod").value = currentPeriod;
+  document.getElementById("sumInput").value = "";
 }
 
 function render() {
@@ -110,8 +121,7 @@ function render() {
   history.forEach(h => {
     historyEl.innerHTML += `
       <tr>
-        <td>${h.p}</td>
-        <td>${h.dice}</td>
+        <td>${h.period}</td>
         <td>${h.sum}</td>
         <td>${h.size}</td>
         <td>${h.oe}</td>
@@ -136,7 +146,8 @@ function clearAll() {
   if (confirm("Clear all saved data?")) {
     history = [];
     for (let i = 3; i <= 18; i++) sumCounter[i] = 0;
-    save();
+    currentPeriod = null;
+    localStorage.clear();
     render();
   }
 }
