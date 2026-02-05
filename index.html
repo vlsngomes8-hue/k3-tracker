@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>K3 Tap Tracker</title>
+  <title>K3 Sum Tap Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
@@ -35,7 +35,7 @@
       font-size: 18px;
       font-weight: bold;
       background: #222;
-      color: white;
+      color: #fff;
       border: none;
       border-radius: 6px;
     }
@@ -48,7 +48,7 @@
       width: 100%;
       border-collapse: collapse;
       margin-top: 10px;
-      background: white;
+      background: #fff;
     }
 
     th, td {
@@ -60,11 +60,11 @@
 
     th {
       background: #333;
-      color: white;
+      color: #fff;
     }
 
     .box {
-      background: white;
+      background: #fff;
       padding: 10px;
       margin-top: 10px;
     }
@@ -113,21 +113,20 @@
 </div>
 
 <script>
-/* ===== LOAD SAVED DATA ===== */
+/* ========= LOAD DATA ========= */
 let history = JSON.parse(localStorage.getItem("k3_history")) || [];
 let sumCounter = JSON.parse(localStorage.getItem("k3_sumCounter")) || {};
-let currentPeriod = localStorage.getItem("k3_currentPeriod");
+let currentPeriod = localStorage.getItem("k3_currentPeriod"); // STRING
 
 for (let i = 3; i <= 18; i++) {
   if (!sumCounter[i]) sumCounter[i] = 0;
 }
 
 if (currentPeriod) {
-  currentPeriod = parseInt(currentPeriod, 10);
   document.getElementById("startPeriod").value = currentPeriod;
 }
 
-/* ===== CREATE SUM BUTTONS ===== */
+/* ========= CREATE SUM BUTTONS ========= */
 const btnWrap = document.getElementById("sumButtons");
 for (let i = 3; i <= 18; i++) {
   const btn = document.createElement("button");
@@ -137,14 +136,23 @@ for (let i = 3; i <= 18; i++) {
   btnWrap.appendChild(btn);
 }
 
-/* ===== SAVE FUNCTION ===== */
+/* ========= SAFE PERIOD INCREMENT ========= */
+/* increases ONLY last 2 digits safely */
+function nextPeriod(p) {
+  let base = p.slice(0, -2);
+  let last = p.slice(-2);
+  let next = (parseInt(last, 10) + 1).toString().padStart(2, "0");
+  return base + next;
+}
+
+/* ========= SAVE ========= */
 function save() {
   localStorage.setItem("k3_history", JSON.stringify(history));
   localStorage.setItem("k3_sumCounter", JSON.stringify(sumCounter));
   localStorage.setItem("k3_currentPeriod", currentPeriod);
 }
 
-/* ===== ADD SUM ===== */
+/* ========= ADD SUM ========= */
 function addSum(sum) {
   if (!currentPeriod) {
     const sp = document.getElementById("startPeriod").value.trim();
@@ -152,7 +160,7 @@ function addSum(sum) {
       alert("Enter starting period first");
       return;
     }
-    currentPeriod = parseInt(sp, 10);
+    currentPeriod = sp;
   }
 
   const size = sum <= 10 ? "Small" : "Big";
@@ -166,7 +174,7 @@ function addSum(sum) {
   });
 
   sumCounter[sum]++;
-  currentPeriod++;
+  currentPeriod = nextPeriod(currentPeriod);
 
   document.getElementById("startPeriod").value = currentPeriod;
 
@@ -174,9 +182,9 @@ function addSum(sum) {
   render();
 }
 
-/* ===== UNDO LAST ===== */
+/* ========= UNDO ========= */
 function undoLast() {
-  if (history.length === 0) {
+  if (!history.length) {
     alert("Nothing to undo");
     return;
   }
@@ -191,7 +199,7 @@ function undoLast() {
   render();
 }
 
-/* ===== RENDER ===== */
+/* ========= RENDER ========= */
 function render() {
   const historyEl = document.getElementById("history");
   historyEl.innerHTML = "";
@@ -221,16 +229,17 @@ function render() {
     miss.length ? miss.join(", ") : "No missing sums 🎯";
 }
 
+/* ========= CLEAR ========= */
 function clearAll() {
-  if (confirm("Clear all saved data?")) {
-    localStorage.clear();
-    history = [];
-    sumCounter = {};
-    for (let i = 3; i <= 18; i++) sumCounter[i] = 0;
-    currentPeriod = null;
-    document.getElementById("startPeriod").value = "";
-    render();
-  }
+  if (!confirm("Clear all data?")) return;
+
+  localStorage.clear();
+  history = [];
+  sumCounter = {};
+  for (let i = 3; i <= 18; i++) sumCounter[i] = 0;
+  currentPeriod = null;
+  document.getElementById("startPeriod").value = "";
+  render();
 }
 
 render();
