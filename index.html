@@ -1,42 +1,66 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>K3 Tracker</title>
+  <title>K3 Sum Tap Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: Arial; background:#f2f2f2; padding:10px; }
     h3 { text-align:center; }
+
     input, button {
       width: 100%;
-      padding: 8px;
+      padding: 10px;
       margin: 5px 0;
       font-size: 16px;
     }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .sumBtn {
+      padding: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 6px;
+      background: #333;
+      color: #fff;
+    }
+
+    .sumBtn:hover { opacity: 0.85; }
+
     table {
       width:100%;
       border-collapse: collapse;
       margin-top:10px;
       background:#fff;
     }
+
     th, td {
       border:1px solid #ccc;
       padding:6px;
       text-align:center;
       font-size:14px;
     }
+
     th { background:#333; color:#fff; }
+
     .box { background:#fff; padding:10px; margin-top:10px; }
     .danger { color:red; font-weight:bold; }
   </style>
 </head>
 <body>
 
-<h3>K3 Sum Tracker</h3>
+<h3>K3 Tap Sum Tracker</h3>
 
 <input id="startPeriod" placeholder="Starting Period (enter once)">
-<input id="sumInput" type="number" min="3" max="18" placeholder="Enter Sum (3–18)">
 
-<button onclick="add()">Add</button>
+<div class="grid" id="sumButtons"></div>
+
 <button onclick="clearAll()">Clear All Data</button>
 
 <div class="box">
@@ -77,18 +101,25 @@ if (currentPeriod) {
   document.getElementById("startPeriod").value = currentPeriod;
 }
 
+const btnWrap = document.getElementById("sumButtons");
+for (let i = 3; i <= 18; i++) {
+  let btn = document.createElement("button");
+  btn.className = "sumBtn";
+  btn.innerText = i;
+  btn.onclick = () => addSum(i);
+  btnWrap.appendChild(btn);
+}
+
 function save() {
   localStorage.setItem("k3_history", JSON.stringify(history));
   localStorage.setItem("k3_sumCounter", JSON.stringify(sumCounter));
   localStorage.setItem("k3_currentPeriod", currentPeriod);
 }
 
-function add() {
+function addSum(sum) {
   let sp = document.getElementById("startPeriod").value.trim();
-  let sum = +document.getElementById("sumInput").value;
-
-  if (!sp || sum < 3 || sum > 18) {
-    alert("Enter starting period and valid sum (3–18)");
+  if (!sp && !currentPeriod) {
+    alert("Enter starting period first");
     return;
   }
 
@@ -107,11 +138,10 @@ function add() {
   sumCounter[sum]++;
   currentPeriod = (parseInt(currentPeriod) + 1).toString();
 
+  document.getElementById("startPeriod").value = currentPeriod;
+
   save();
   render();
-
-  document.getElementById("startPeriod").value = currentPeriod;
-  document.getElementById("sumInput").value = "";
 }
 
 function render() {
@@ -144,10 +174,12 @@ function render() {
 
 function clearAll() {
   if (confirm("Clear all saved data?")) {
+    localStorage.clear();
     history = [];
+    sumCounter = {};
     for (let i = 3; i <= 18; i++) sumCounter[i] = 0;
     currentPeriod = null;
-    localStorage.clear();
+    document.getElementById("startPeriod").value = "";
     render();
   }
 }
